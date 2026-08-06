@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ZONE_LABELS, ZONES, type Zone } from "@/lib/zones";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from "recharts";
-import { downloadCsv } from "@/lib/export";
+import { downloadExcel } from "@/lib/export";
 import { Download, EyeOff, Loader2, Trophy } from "lucide-react";
 
 type Election = { id: string; name: string; results_visible: boolean };
@@ -57,8 +57,8 @@ export function ResultsPanel() {
   });
 
   const candidatesQ = useQuery({
-    enabled: !!currentId,
-    queryKey: ["candidates-results", currentId],
+    enabled: !!currentId && positionsQ.isSuccess,
+    queryKey: ["candidates-results", currentId, (positionsQ.data ?? []).map((p) => p.id).join(",")],
     queryFn: async () => {
       const posIds = (positionsQ.data ?? []).map((p) => p.id);
       if (posIds.length === 0) return [] as Candidate[];
@@ -118,13 +118,11 @@ export function ResultsPanel() {
   const canView = isAdmin || (currentElection?.results_visible ?? false);
 
   function exportPositions() {
-    const rows: Record<string, unknown>[] = [];
-    (positionsQ.data ?? []).forEach((p) => {
-      (results[p.id] ?? []).forEach((r, i) => {
-        rows.push({ position: p.title, candidate: r.name, votes: r.count, rank: i + 1 });
-      });
-    });
-    downloadCsv(`results-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+    const sheets = (positionsQ.data ?? []).map((p) => ({
+      name: p.title,
+      rows: (results[p.id] ?? []).map((r, i) => ({ rank: i + 1, candidate: r.name, votes: r.count })),
+    }));
+    downloadExcel(`results-${new Date().toISOString().slice(0, 10)}.xlsx`, sheets);
   }
 
   return (

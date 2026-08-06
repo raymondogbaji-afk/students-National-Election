@@ -61,7 +61,6 @@ export type Database = {
           institution: string | null
           name: string
           order_index: number
-          photo_url: string | null
           position_id: string
           profile: string | null
           zone: Database["public"]["Enums"]["zone"] | null
@@ -73,7 +72,6 @@ export type Database = {
           institution?: string | null
           name: string
           order_index?: number
-          photo_url?: string | null
           position_id: string
           profile?: string | null
           zone?: Database["public"]["Enums"]["zone"] | null
@@ -85,7 +83,6 @@ export type Database = {
           institution?: string | null
           name?: string
           order_index?: number
-          photo_url?: string | null
           position_id?: string
           profile?: string | null
           zone?: Database["public"]["Enums"]["zone"] | null
@@ -267,6 +264,7 @@ export type Database = {
           ip_address: string | null
           status: Database["public"]["Enums"]["code_status"]
           used_at: string | null
+          voter_name: string | null
           zone: Database["public"]["Enums"]["zone"]
         }
         Insert: {
@@ -278,6 +276,7 @@ export type Database = {
           ip_address?: string | null
           status?: Database["public"]["Enums"]["code_status"]
           used_at?: string | null
+          voter_name?: string | null
           zone: Database["public"]["Enums"]["zone"]
         }
         Update: {
@@ -289,6 +288,7 @@ export type Database = {
           ip_address?: string | null
           status?: Database["public"]["Enums"]["code_status"]
           used_at?: string | null
+          voter_name?: string | null
           zone?: Database["public"]["Enums"]["zone"]
         }
         Relationships: [
@@ -307,6 +307,13 @@ export type Database = {
     }
     Functions: {
       bootstrap_super_admin: { Args: never; Returns: boolean }
+      bulk_create_voting_codes: {
+        Args: {
+          p_election_id: string
+          p_voters: Json
+        }
+        Returns: Json
+      }
       cast_votes: {
         Args: {
           p_code: string

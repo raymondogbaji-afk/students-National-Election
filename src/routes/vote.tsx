@@ -3,13 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
-import { CandidatePhoto } from "@/components/CandidatePhoto";
+import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, X } from "lucide-react";
 import { ZONE_LABELS, type Zone } from "@/lib/zones";
 import { getDeviceFingerprint } from "@/lib/fingerprint";
 import { reasonToMessage } from "./index";
@@ -31,7 +31,6 @@ type Candidate = {
   name: string;
   institution: string | null;
   profile: string | null;
-  photo_url: string | null;
   order_index: number;
 };
 
@@ -92,7 +91,7 @@ function VotePage() {
           .order("order_index", { ascending: true }),
         supabase
           .from("candidates")
-          .select("id,position_id,name,institution,profile,photo_url,order_index,active")
+          .select("id,position_id,name,institution,profile,order_index,active")
           .eq("active", true)
           .order("order_index", { ascending: true }),
       ]);
@@ -182,7 +181,7 @@ function VotePage() {
           <span>
             Step {Math.min(step + 1, totalSteps)} of {totalSteps}
           </span>
-          <span>{currentPos ? "Choose one candidate" : "Review your ballot"}</span>
+          <span>{currentPos ? "Choose a candidate (optional)" : "Review your ballot"}</span>
         </div>
         <Progress value={progress} className="mt-2 h-1.5" />
       </div>
@@ -225,6 +224,12 @@ function ShellLayout({ zone, children }: { zone: Zone; children: React.ReactNode
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-4 py-8">{children}</main>
+      <footer className="mx-auto max-w-3xl px-4 pb-8">
+        <p className="text-center text-xs text-muted-foreground">
+          For any challenges or technical issues encountered during the election process, please
+          contact the National Electoral Committee.
+        </p>
+      </footer>
     </div>
   );
 }
@@ -247,10 +252,28 @@ function PositionStep({
   return (
     <div>
       <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-          {position.kind === "national" ? "National Position" : "Zonal Position"}
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+              {position.kind === "national" ? "National Position" : "Zonal Position"}
+            </p>
+            <h2 className="mt-1 font-display text-2xl font-bold">{position.title}</h2>
+          </div>
+          {selected ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onSelect("")}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <X className="mr-1 h-4 w-4" /> Clear Selection
+            </Button>
+          ) : null}
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Voting for this position is optional. You may skip it.
         </p>
-        <h2 className="mt-1 font-display text-2xl font-bold">{position.title}</h2>
       </div>
 
       <div className="grid gap-3">
@@ -265,7 +288,7 @@ function PositionStep({
               <button
                 key={c.id}
                 type="button"
-                onClick={() => onSelect(c.id)}
+                onClick={() => onSelect(isSelected ? "" : c.id)}
                 className={
                   "flex w-full items-center gap-4 rounded-xl border-2 bg-card p-4 text-left transition-all " +
                   (isSelected
@@ -273,11 +296,7 @@ function PositionStep({
                     : "border-border hover:border-primary/40 hover:bg-primary-soft/30")
                 }
               >
-                <CandidatePhoto
-                  path={c.photo_url}
-                  name={c.name}
-                  className="h-16 w-16 shrink-0 rounded-lg"
-                />
+                <InitialsAvatar name={c.name} className="h-16 w-16 shrink-0 rounded-lg text-lg" />
                 <div className="min-w-0 flex-1">
                   <p className="font-display text-base font-semibold">{c.name}</p>
                   {c.institution ? (
@@ -311,7 +330,7 @@ function PositionStep({
         ) : (
           <span />
         )}
-        <Button onClick={onNext} disabled={!selected}>
+        <Button onClick={onNext}>
           Next <ArrowRight className="ml-1 h-4 w-4" />
         </Button>
       </div>
@@ -336,12 +355,12 @@ function ReviewStep({
   submitting: boolean;
   onBack: () => void;
 }) {
-  const allSelected = positions.every((p) => selections[p.id]);
   return (
     <div>
       <h2 className="font-display text-2xl font-bold">Review your ballot</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Please confirm your selections. You will not be able to change them after submission.
+        Please confirm your selections. Voting is optional for each position. You will not be
+        able to change your ballot after submission.
       </p>
 
       <div className="mt-6 grid gap-2">
@@ -357,7 +376,7 @@ function ReviewStep({
                   {p.title}
                 </p>
                 <p className="mt-0.5 truncate font-display text-base font-semibold">
-                  {cand?.name ?? <span className="text-destructive">Not selected</span>}
+                  {cand?.name ?? <span className="text-muted-foreground">Not selected</span>}
                 </p>
               </div>
               <Button variant="ghost" size="sm" onClick={() => onEdit(i)}>
@@ -372,7 +391,7 @@ function ReviewStep({
         <Button variant="outline" onClick={onBack}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Back
         </Button>
-        <Button onClick={onSubmit} disabled={!allSelected || submitting}>
+        <Button onClick={onSubmit} disabled={submitting}>
           {submitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…

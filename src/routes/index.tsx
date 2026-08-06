@@ -62,7 +62,7 @@ function HomePage() {
           <ul className="mt-8 grid gap-3 text-sm text-muted-foreground">
             <Feature icon={<Vote className="h-4 w-4" />} label="One vote per position, per code" />
             <Feature icon={<Lock className="h-4 w-4" />} label="Encrypted transmission, atomic submission" />
-            <Feature icon={<ChartBar className="h-4 w-4" />} label="Real-time results published after election closes" />
+            <Feature icon={<ChartBar className="h-4 w-4" />} label="Results published after the election closes" />
           </ul>
         </section>
 
@@ -98,7 +98,8 @@ function HomePage() {
 
             <p className="mt-6 text-xs text-muted-foreground">
               Your code is valid once. After you submit your vote, it cannot be reused.
-              If your code has been used or does not work, contact your zonal coordinator.
+              For any challenges or technical issues encountered during the election process, please
+              contact the National Electoral Committee.
             </p>
           </div>
         </section>

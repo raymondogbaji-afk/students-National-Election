@@ -11,9 +11,9 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import { ZONE_LABELS, type Zone } from "@/lib/zones";
-import { CandidatePhoto } from "@/components/CandidatePhoto";
+import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { logAudit } from "@/lib/audit";
 
 type Election = { id: string; name: string };
@@ -24,7 +24,6 @@ type Candidate = {
   name: string;
   institution: string | null;
   profile: string | null;
-  photo_url: string | null;
   zone: Zone | null;
   active: boolean;
 };
@@ -66,7 +65,7 @@ export function CandidatesPanel() {
     queryFn: async () => {
       let q = supabase
         .from("candidates")
-        .select("id,position_id,name,institution,profile,photo_url,zone,active")
+        .select("id,position_id,name,institution,profile,zone,active")
         .order("order_index");
       if (positionId) q = q.eq("position_id", positionId);
       else {
@@ -131,7 +130,7 @@ export function CandidatesPanel() {
             const p = posMap[c.position_id];
             return (
               <Card key={c.id} className="flex items-start gap-3 p-4">
-                <CandidatePhoto path={c.photo_url} name={c.name} className="h-16 w-16 rounded-lg" />
+                <InitialsAvatar name={c.name} className="h-16 w-16 shrink-0 rounded-lg text-lg" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate font-display text-base font-semibold">{c.name}</p>
@@ -158,7 +157,6 @@ function NewCandidateDialog({ positions, onCreated }: { positions: Position[]; o
   const [positionId, setPositionId] = useState("");
   const [name, setName] = useState("");
   const [institution, setInstitution] = useState("");
-  const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
   const pos = positions.find((p) => p.id === positionId) ?? null;
@@ -167,28 +165,16 @@ function NewCandidateDialog({ positions, onCreated }: { positions: Position[]; o
     if (!positionId || !name.trim()) return;
     setSaving(true);
     try {
-      let photoPath: string | null = null;
-      if (file) {
-        const ext = file.name.split(".").pop() ?? "jpg";
-        const path = `${crypto.randomUUID()}.${ext}`;
-        const up = await supabase.storage.from("candidate-photos").upload(path, file, {
-          contentType: file.type || undefined,
-          upsert: false,
-        });
-        if (up.error) throw up.error;
-        photoPath = up.data.path;
-      }
       const { error } = await supabase.from("candidates").insert({
         position_id: positionId,
         name: name.trim(),
         institution: institution.trim() || null,
-        photo_url: photoPath,
         zone: pos?.kind === "zonal" ? pos.zone : null,
       });
       if (error) throw error;
       await logAudit({ action: "candidate_created", entity_type: "candidate", metadata: { name } });
       toast.success("Candidate added.");
-      setOpen(false); setName(""); setInstitution(""); setFile(null); setPositionId("");
+      setOpen(false); setName(""); setInstitution(""); setPositionId("");
       onCreated();
     } catch (err) {
       toast.error((err as Error).message);
@@ -227,19 +213,6 @@ function NewCandidateDialog({ positions, onCreated }: { positions: Position[]; o
               <Label>Chapter</Label>
               <Input value={institution} onChange={(e) => setInstitution(e.target.value)} />
             </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Photograph</Label>
-            <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-3 text-sm text-muted-foreground hover:border-primary">
-              <Upload className="h-4 w-4" />
-              {file ? file.name : "Click to upload (JPG or PNG)"}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
-            </label>
           </div>
         </div>
         <DialogFooter>

@@ -12,9 +12,9 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Ban, Download, Search } from "lucide-react";
+import { Loader2, Plus, Ban, Download, Search, Upload } from "lucide-react";
 import { ZONE_LABELS, ZONES, type Zone } from "@/lib/zones";
-import { downloadCsv } from "@/lib/export";
+import { downloadCsv, parseSpreadsheet } from "@/lib/export";
 
 type Election = { id: string; name: string };
 type Code = {
@@ -26,6 +26,7 @@ type Code = {
   used_at: string | null;
   device_fingerprint: string | null;
   ip_address: string | null;
+  voter_name: string | null;
 };
 
 export function CodesPanel() {
@@ -51,7 +52,7 @@ export function CodesPanel() {
     queryFn: async () => {
       let q = supabase
         .from("voting_codes")
-        .select("id,code,zone,status,generated_at,used_at,device_fingerprint,ip_address")
+        .select("id,code,zone,status,generated_at,used_at,device_fingerprint,ip_address,voter_name")
         .eq("election_id", currentId)
         .order("generated_at", { ascending: false })
         .limit(500);
@@ -80,6 +81,7 @@ export function CodesPanel() {
       code: c.code,
       zone: ZONE_LABELS[c.zone],
       status: c.status,
+      voter: c.voter_name ?? "",
       generated_at: c.generated_at,
       used_at: c.used_at ?? "",
       device_fingerprint: c.device_fingerprint ?? "",
@@ -103,6 +105,7 @@ export function CodesPanel() {
             </SelectContent>
           </Select>
           <GenerateCodesDialog electionId={currentId} onDone={() => qc.invalidateQueries({ queryKey: ["codes"] })} />
+          <BulkUploadDialog electionId={currentId} onDone={() => qc.invalidateQueries({ queryKey: ["codes"] })} />
           <Button variant="outline" onClick={exportCsv}><Download className="mr-1 h-4 w-4" /> Export CSV</Button>
         </div>
       </div>
@@ -140,6 +143,7 @@ export function CodesPanel() {
             <TableHeader>
               <TableRow>
                 <TableHead>Code</TableHead>
+                <TableHead>Voter</TableHead>
                 <TableHead>Zone</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Generated</TableHead>
@@ -149,10 +153,11 @@ export function CodesPanel() {
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">No codes match.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">No codes match.</TableCell></TableRow>
               ) : filtered.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell className="font-mono text-sm">{c.code}</TableCell>
+                  <TableCell className="text-sm">{c.voter_name ?? <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell>{ZONE_LABELS[c.zone]}</TableCell>
                   <TableCell>
                     <Badge variant={c.status === "used" ? "secondary" : c.status === "disabled" ? "destructive" : "outline"} className="capitalize">
@@ -230,6 +235,129 @@ function GenerateCodesDialog({ electionId, onDone }: { electionId: string; onDon
         <DialogFooter>
           <Button onClick={gen} disabled={running || count < 1}>
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : "Generate"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function normalizeZone(raw: string): Zone | null {
+  const s = raw.trim().toLowerCase().replace(/[\s_-]+/g, "");
+  if (s === "northern" || s === "north" || s === "northernzone") return "northern";
+  if (s === "eastern" || s === "east" || s === "easternzone") return "eastern";
+  if (s === "western" || s === "west" || s === "westernzone") return "western";
+  return null;
+}
+
+function pickRowValue(row: Record<string, unknown>, aliases: string[]): string {
+  const key = Object.keys(row).find((k) => aliases.includes(k.trim().toLowerCase()));
+  return key ? String(row[key] ?? "").trim() : "";
+}
+
+type ParsedVoter = { name: string; zone: Zone | null; reason?: string };
+
+function BulkUploadDialog({ electionId, onDone }: { electionId: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [fileName, setFileName] = useState("");
+  const [voters, setVoters] = useState<ParsedVoter[]>([]);
+  const [running, setRunning] = useState(false);
+
+  async function handleFile(file: File | undefined) {
+    if (!file) return;
+    setFileName(file.name);
+    try {
+      const parsed = await parseSpreadsheet(file);
+      const rows: ParsedVoter[] = parsed.map((r) => {
+        const name = pickRowValue(r, ["name", "full name", "voter", "voter name", "voter's name", "names"]);
+        const zone = normalizeZone(pickRowValue(r, ["zone", "zonal", "zone name", "zonal zone"]));
+        return { name, zone, reason: !name ? "Missing name" : !zone ? "Unknown zone" : undefined };
+      });
+      setVoters(rows);
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not read the file. Please upload an .xlsx, .xls, or .csv file.");
+      setVoters([]);
+    }
+  }
+
+  const valid = voters.filter((v) => v.name && v.zone);
+  const invalid = voters.length - valid.length;
+
+  async function upload() {
+    if (!electionId || valid.length === 0) return;
+    setRunning(true);
+    try {
+      const { data, error } = await supabase.rpc("bulk_create_voting_codes", {
+        p_election_id: electionId,
+        p_voters: valid.map((v) => ({ name: v.name, zone: v.zone })),
+      });
+      if (error) throw error;
+      const res = data as { created: number; skipped: string[] };
+      toast.success(`Created ${res.created} code${res.created === 1 ? "" : "s"}.`);
+      if (res.skipped?.length) toast.warning(`${res.skipped.length} row(s) could not be created.`);
+      setOpen(false); setVoters([]); setFileName("");
+      onDone();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" disabled={!electionId}>
+          <Upload className="mr-1 h-4 w-4" /> Bulk upload
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Bulk upload eligible voters</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Upload an Excel (.xlsx) or CSV file with a <strong>Name</strong> column and a{" "}
+            <strong>Zone</strong> column (Northern, Eastern or Western). One voting code is created
+            per row.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadCsv("eligible-voters-template.csv", [{ name: "Example Voter", zone: "northern" }])}
+            >
+              <Download className="mr-1 h-4 w-4" /> Download template
+            </Button>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-3 text-sm text-muted-foreground hover:border-primary">
+            <Upload className="h-4 w-4" />
+            {fileName || "Click to choose a file (.xlsx, .xls or .csv)"}
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0])}
+            />
+          </label>
+          {voters.length > 0 ? (
+            <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+              <p>
+                <strong>{valid.length}</strong> valid row{valid.length === 1 ? "" : "s"} ·{" "}
+                <strong className={invalid ? "text-destructive" : ""}>{invalid}</strong> ignored
+              </p>
+              {invalid > 0 ? (
+                <ul className="mt-2 max-h-24 list-disc space-y-0.5 overflow-auto pl-5 text-xs text-muted-foreground">
+                  {voters.filter((v) => v.reason).slice(0, 20).map((v, i) => (
+                    <li key={i}>{v.name || "—"} — {v.reason}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        <DialogFooter>
+          <Button onClick={upload} disabled={running || valid.length === 0}>
+            {running ? <Loader2 className="h-4 w-4 animate-spin" /> : `Create ${valid.length || ""} codes`}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,3 +1,36 @@
+import * as XLSX from "xlsx";
+
+export function downloadExcel(
+  filename: string,
+  sheets: { name: string; rows: Record<string, unknown>[] }[],
+) {
+  const book = XLSX.utils.book_new();
+  for (const sheet of sheets) {
+    const ws = XLSX.utils.json_to_sheet(sheet.rows);
+    XLSX.utils.book_append_sheet(book, ws, sheet.name.slice(0, 31));
+  }
+  const out = XLSX.write(book, { bookType: "xlsx", type: "array" });
+  downloadBlob(filename, new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+}
+
+export function parseSpreadsheet(file: File): Promise<Record<string, unknown>[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read file"));
+    reader.onload = () => {
+      try {
+        const data = new Uint8Array(reader.result as ArrayBuffer);
+        const book = XLSX.read(data, { type: "array" });
+        const sheet = book.Sheets[book.SheetNames[0]];
+        resolve(XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" }));
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 export function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
   if (rows.length === 0) {
     downloadBlob(filename, new Blob(["(no rows)"], { type: "text/csv" }));
