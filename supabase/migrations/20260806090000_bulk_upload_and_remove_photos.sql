@@ -52,4 +52,9 @@ drop policy if exists "candidate photos public read" on storage.objects;
 drop policy if exists "candidate photos committee write" on storage.objects;
 drop policy if exists "candidate photos committee update" on storage.objects;
 drop policy if exists "candidate photos committee delete" on storage.objects;
-drop bucket if exists candidate-photos;
+do $$
+begin
+  if exists (select 1 from storage.buckets where id = 'candidate-photos') then
+    perform storage.delete_bucket('candidate-photos');
+  end if;
+end $$;

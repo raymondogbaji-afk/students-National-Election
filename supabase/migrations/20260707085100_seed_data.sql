@@ -16,7 +16,7 @@ values (
 -- ============ POSITIONS SEED ============
 insert into public.positions (election_id, title, slug, kind, zone, order_index, active)
 select * from (values
-  ('00000000-0000-0000-0000-000000000001', 'National President',           'national-president',           'national', null, 0, true),
+  ('00000000-0000-0000-0000-000000000001'::uuid, 'National President',           'national-president',           'national'::public.position_kind, null::public.zone, 0, true),
   ('00000000-0000-0000-0000-000000000001', 'National General Secretary',    'national-general-secretary',   'national', null, 1, true),
   ('00000000-0000-0000-0000-000000000001', 'National Financial Secretary',  'national-financial-secretary', 'national', null, 2, true),
   ('00000000-0000-0000-0000-000000000001', 'National Missions Secretary',   'national-missions-secretary',  'national', null, 3, true),
