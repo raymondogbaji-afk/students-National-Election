@@ -11,10 +11,11 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Upload, Download } from "lucide-react";
 import { ZONE_LABELS, type Zone } from "@/lib/zones";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { logAudit } from "@/lib/audit";
+import { downloadCsv, parseSpreadsheet } from "@/lib/export";
 
 type Election = { id: string; name: string };
 type Position = { id: string; title: string; kind: "national" | "zonal"; zone: Zone | null };
@@ -116,6 +117,11 @@ export function CandidatesPanel() {
           <NewCandidateDialog
             positions={positionsQ.data ?? []}
             onCreated={() => qc.invalidateQueries({ queryKey: ["candidates-of"] })}
+          />
+          <BulkUploadDialog
+            electionId={currentElection}
+            positions={positionsQ.data ?? []}
+            onDone={() => qc.invalidateQueries({ queryKey: ["candidates-of"] })}
           />
         </div>
       </div>
@@ -228,4 +234,147 @@ function NewCandidateDialog({ positions, onCreated }: { positions: Position[]; o
 function Loader() { return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>; }
 function EmptyState({ label }: { label: string }) {
   return <Card className="border-dashed p-12 text-center text-sm text-muted-foreground">{label}</Card>;
+}
+
+function pickRowValue(row: Record<string, unknown>, aliases: string[]): string {
+  const key = Object.keys(row).find((k) => aliases.includes(k.trim().toLowerCase()));
+  return key ? String(row[key] ?? "").trim() : "";
+}
+
+type ParsedCandidate = { name: string; position: string; institution: string; profile: string; reason?: string };
+
+function BulkUploadDialog({
+  electionId,
+  positions,
+  onDone,
+}: {
+  electionId: string;
+  positions: Position[];
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [fileName, setFileName] = useState("");
+  const [rows, setRows] = useState<ParsedCandidate[]>([]);
+  const [running, setRunning] = useState(false);
+
+  const knownTitles = useMemo(() => new Set(positions.map((p) => p.title.trim().toLowerCase())), [positions]);
+
+  async function handleFile(file: File | undefined) {
+    if (!file) return;
+    setFileName(file.name);
+    try {
+      const parsed = await parseSpreadsheet(file);
+      const parsedRows: ParsedCandidate[] = parsed.map((r) => {
+        const name = pickRowValue(r, ["name", "candidate", "candidate name", "full name", "names"]);
+        const position = pickRowValue(r, ["position", "post", "office", "title", "position title"]);
+        const institution = pickRowValue(r, ["chapter", "institution", "school", "university", "college"]);
+        const profile = pickRowValue(r, ["profile", "bio", "manifesto", "about", "description"]);
+        const reason = !name
+          ? "Missing name"
+          : !position
+            ? "Missing position"
+            : !knownTitles.has(position.toLowerCase())
+              ? "Unknown position"
+              : undefined;
+        return { name, position, institution, profile, reason };
+      });
+      setRows(parsedRows);
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not read the file. Please upload an .xlsx, .xls, or .csv file.");
+      setRows([]);
+    }
+  }
+
+  const valid = rows.filter((r) => r.name && r.position && !r.reason);
+  const invalid = rows.length - valid.length;
+
+  function downloadTemplate() {
+    const sample =
+      positions.length > 0
+        ? positions.map((p) => ({ position: p.title, name: "", chapter: "", profile: "" }))
+        : [{ position: "National President", name: "", chapter: "", profile: "" }];
+    downloadCsv("candidates-template.csv", sample);
+  }
+
+  async function upload() {
+    if (!electionId || valid.length === 0) return;
+    setRunning(true);
+    try {
+      const { data, error } = await supabase.rpc("bulk_create_candidates", {
+        p_election_id: electionId,
+        p_candidates: valid.map((r) => ({
+          position: r.position,
+          name: r.name,
+          institution: r.institution,
+          profile: r.profile,
+        })),
+      });
+      if (error) throw error;
+      const res = data as { created: number; skipped: { name: string; reason: string }[] };
+      toast.success(`Added ${res.created} candidate${res.created === 1 ? "" : "s"}.`);
+      if (res.skipped?.length) toast.warning(`${res.skipped.length} row(s) could not be created.`);
+      setOpen(false); setRows([]); setFileName("");
+      onDone();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" disabled={!electionId}>
+          <Upload className="mr-1 h-4 w-4" /> Bulk upload
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Bulk upload candidates</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Upload an Excel (.xlsx) or CSV file with a <strong>Position</strong> column (matching a position
+            title above) and a <strong>Name</strong> column. Optional <strong>Chapter</strong> and{" "}
+            <strong>Profile</strong> columns. Zone is set automatically for zonal positions.
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={downloadTemplate}>
+              <Download className="mr-1 h-4 w-4" /> Download template
+            </Button>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-3 text-sm text-muted-foreground hover:border-primary">
+            <Upload className="h-4 w-4" />
+            {fileName || "Click to choose a file (.xlsx, .xls or .csv)"}
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0])}
+            />
+          </label>
+          {rows.length > 0 ? (
+            <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+              <p>
+                <strong>{valid.length}</strong> valid row{valid.length === 1 ? "" : "s"} ·{" "}
+                <strong className={invalid ? "text-destructive" : ""}>{invalid}</strong> ignored
+              </p>
+              {invalid > 0 ? (
+                <ul className="mt-2 max-h-24 list-disc space-y-0.5 overflow-auto pl-5 text-xs text-muted-foreground">
+                  {rows.filter((r) => r.reason).slice(0, 20).map((r, i) => (
+                    <li key={i}>{r.name || "—"} — {r.reason}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        <DialogFooter>
+          <Button onClick={upload} disabled={running || valid.length === 0}>
+            {running ? <Loader2 className="h-4 w-4 animate-spin" /> : `Add ${valid.length || ""} candidate${valid.length === 1 ? "" : "s"}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }

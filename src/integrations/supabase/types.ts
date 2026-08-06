@@ -307,6 +307,13 @@ export type Database = {
     }
     Functions: {
       bootstrap_super_admin: { Args: never; Returns: boolean }
+      bulk_create_candidates: {
+        Args: {
+          p_candidates: Json
+          p_election_id: string
+        }
+        Returns: Json
+      }
       bulk_create_voting_codes: {
         Args: {
           p_election_id: string
