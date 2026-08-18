@@ -94,8 +94,8 @@ create table public.candidates (
   position_id uuid not null references public.positions(id) on delete cascade,
   name text not null,
   institution text,
+  current_position text,
   profile text,
-  photo_url text,
   zone public.zone,
   active boolean not null default true,
   order_index int not null default 0,
@@ -582,8 +582,8 @@ begin
         continue;
       end if;
 
-      insert into public.candidates(position_id, name, institution, profile, zone)
-      values (v_pos.id, v_name, nullif(v_row->>'institution',''), nullif(v_row->>'profile',''),
+      insert into public.candidates(position_id, name, institution, current_position, profile, zone)
+      values (v_pos.id, v_name, nullif(v_row->>'institution',''), nullif(v_row->>'current_position',''), nullif(v_row->>'profile',''),
               case when v_pos.kind = 'zonal' then v_pos.zone else null end);
       created := created + 1;
     exception when others then

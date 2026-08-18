@@ -24,6 +24,7 @@ type Candidate = {
   position_id: string;
   name: string;
   institution: string | null;
+  current_position: string | null;
   profile: string | null;
   zone: Zone | null;
   active: boolean;
@@ -66,7 +67,7 @@ export function CandidatesPanel() {
     queryFn: async () => {
       let q = supabase
         .from("candidates")
-        .select("id,position_id,name,institution,profile,zone,active")
+        .select("id,position_id,name,institution,current_position,profile,zone,active")
         .order("order_index");
       if (positionId) q = q.eq("position_id", positionId);
       else {
@@ -144,6 +145,7 @@ export function CandidatesPanel() {
                   </div>
                   <p className="text-xs text-muted-foreground">{p?.title}</p>
                   {c.institution ? <p className="text-xs text-muted-foreground">{c.institution}</p> : null}
+                  {c.current_position ? <p className="text-xs text-muted-foreground">{c.current_position}</p> : null}
                   {c.zone ? <Badge className="mt-1 bg-primary-soft text-primary">{ZONE_LABELS[c.zone]}</Badge> : null}
                 </div>
                 <Button size="icon" variant="ghost" onClick={() => del(c.id)}>
@@ -163,6 +165,7 @@ function NewCandidateDialog({ positions, onCreated }: { positions: Position[]; o
   const [positionId, setPositionId] = useState("");
   const [name, setName] = useState("");
   const [institution, setInstitution] = useState("");
+  const [currentPosition, setCurrentPosition] = useState("");
   const [saving, setSaving] = useState(false);
 
   const pos = positions.find((p) => p.id === positionId) ?? null;
@@ -175,12 +178,13 @@ function NewCandidateDialog({ positions, onCreated }: { positions: Position[]; o
         position_id: positionId,
         name: name.trim(),
         institution: institution.trim() || null,
+        current_position: currentPosition.trim() || null,
         zone: pos?.kind === "zonal" ? pos.zone : null,
       });
       if (error) throw error;
       await logAudit({ action: "candidate_created", entity_type: "candidate", metadata: { name } });
       toast.success("Candidate added.");
-      setOpen(false); setName(""); setInstitution(""); setPositionId("");
+      setOpen(false); setName(""); setInstitution(""); setCurrentPosition(""); setPositionId("");
       onCreated();
     } catch (err) {
       toast.error((err as Error).message);
@@ -220,6 +224,10 @@ function NewCandidateDialog({ positions, onCreated }: { positions: Position[]; o
               <Input value={institution} onChange={(e) => setInstitution(e.target.value)} />
             </div>
           </div>
+          <div className="space-y-1.5">
+            <Label>Current Position</Label>
+            <Input value={currentPosition} onChange={(e) => setCurrentPosition(e.target.value)} placeholder="e.g. Class President" />
+          </div>
         </div>
         <DialogFooter>
           <Button onClick={save} disabled={saving || !name.trim() || !positionId}>
@@ -241,7 +249,7 @@ function pickRowValue(row: Record<string, unknown>, aliases: string[]): string {
   return key ? String(row[key] ?? "").trim() : "";
 }
 
-type ParsedCandidate = { name: string; position: string; institution: string; profile: string; reason?: string };
+type ParsedCandidate = { name: string; position: string; institution: string; current_position: string; profile: string; reason?: string };
 
 function BulkUploadDialog({
   electionId,
@@ -270,13 +278,14 @@ function BulkUploadDialog({
         for (const r of sheet.rows) {
           const name = pickRowValue(r, ["name", "candidate", "candidate name", "full name", "names"]);
           const institution = pickRowValue(r, ["chapter", "institution", "school", "university", "college"]);
+          const current_position = pickRowValue(r, ["current position", "current_position", "position", "role"]);
           const profile = pickRowValue(r, ["profile", "bio", "manifesto", "about", "description"]);
           const reason = !name
             ? "Missing name"
             : !knownTitles.has(position.toLowerCase())
               ? "Unknown position"
               : undefined;
-          parsedRows.push({ name, position, institution, profile, reason });
+          parsedRows.push({ name, position, institution, current_position, profile, reason });
         }
       }
       setRows(parsedRows);
@@ -292,12 +301,12 @@ function BulkUploadDialog({
 
   function downloadTemplate() {
     if (positions.length === 0) {
-      downloadCsv("candidates-template.csv", [{ name: "", chapter: "" }]);
+      downloadCsv("candidates-template.csv", [{ name: "", chapter: "", current_position: "" }]);
       return;
     }
     const sheets = positions.map((p) => ({
       name: p.title,
-      rows: [{ name: "", chapter: "" }, { name: "", chapter: "" }],
+      rows: [{ name: "", chapter: "", current_position: "" }, { name: "", chapter: "", current_position: "" }],
     }));
     downloadExcel("candidates-template.xlsx", sheets);
   }
@@ -312,6 +321,7 @@ function BulkUploadDialog({
           position: r.position,
           name: r.name,
           institution: r.institution,
+          current_position: r.current_position,
           profile: r.profile,
         })),
       });
