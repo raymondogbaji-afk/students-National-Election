@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ZONE_LABELS, ZONES, type Zone } from "@/lib/zones";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from "recharts";
-import { downloadExcel } from "@/lib/export";
+import { downloadCsv } from "@/lib/export";
 import { Download, EyeOff, Loader2, Trophy } from "lucide-react";
 
 type Election = { id: string; name: string; results_visible: boolean };
@@ -118,11 +118,14 @@ export function ResultsPanel() {
   const canView = isAdmin || (currentElection?.results_visible ?? false);
 
   function exportPositions() {
-    const sheets = (positionsQ.data ?? []).map((p) => ({
-      name: p.title,
-      rows: (results[p.id] ?? []).map((r, i) => ({ rank: i + 1, candidate: r.name, votes: r.count })),
-    }));
-    downloadExcel(`results-${new Date().toISOString().slice(0, 10)}.xlsx`, sheets);
+    const rows: { position: string; rank: number; candidate: string; votes: number }[] = [];
+    for (const p of positionsQ.data ?? []) {
+      const posResults = (results[p.id] ?? []).sort((a, b) => b.count - a.count);
+      posResults.forEach((r, i) => {
+        rows.push({ position: p.title, rank: i + 1, candidate: r.name, votes: r.count });
+      });
+    }
+    downloadCsv(`results-${new Date().toISOString().slice(0, 10)}.csv`, rows);
   }
 
   return (

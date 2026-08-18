@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
-import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -176,7 +175,7 @@ function VotePage() {
 
   return (
     <ShellLayout zone={session.zone}>
-      <div className="mb-6">
+      <div className="sticky top-[73px] z-40 -mx-4 mb-6 bg-muted/30 px-4 pb-2 pt-2 backdrop-blur-sm">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
             Step {Math.min(step + 1, totalSteps)} of {totalSteps}
@@ -215,7 +214,7 @@ function VotePage() {
 function ShellLayout({ zone, children }: { zone: Zone; children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-muted/30">
-      <header className="border-b border-border bg-background">
+      <header className="sticky top-0 z-50 border-b border-border bg-background">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <Logo />
           <Badge variant="secondary" className="bg-primary-soft text-primary">
@@ -251,13 +250,10 @@ function PositionStep({
 }) {
   return (
     <div>
-      <div className="mb-6">
+      <div className="sticky top-[73px] z-40 -mx-4 bg-muted/30 px-4 pb-3 pt-1 backdrop-blur-sm">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-              {position.kind === "national" ? "National Position" : "Zonal Position"}
-            </p>
-            <h2 className="mt-1 font-display text-2xl font-bold">{position.title}</h2>
+            <h2 className="font-display text-2xl font-bold">{position.title}</h2>
           </div>
           {selected ? (
             <Button
@@ -296,15 +292,12 @@ function PositionStep({
                     : "border-border hover:border-primary/40 hover:bg-primary-soft/30")
                 }
               >
-                <InitialsAvatar name={c.name} className="h-16 w-16 shrink-0 rounded-lg text-lg" />
                 <div className="min-w-0 flex-1">
-                  <p className="font-display text-base font-semibold">{c.name}</p>
+                  <p className="font-display text-base font-semibold uppercase">{c.name}</p>
                   {c.institution ? (
                     <p className="text-xs text-muted-foreground">{c.institution}</p>
                   ) : null}
-                  {c.profile ? (
-                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{c.profile}</p>
-                  ) : null}
+                  <p className="text-xs text-muted-foreground">{position.title}</p>
                 </div>
                 <div
                   className={

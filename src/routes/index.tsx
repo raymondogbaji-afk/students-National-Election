@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowRight, ShieldCheck, Vote, Lock, ChartBar } from "lucide-react";
+import { ArrowRight, ShieldCheck, Vote, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -62,7 +62,6 @@ function HomePage() {
           <ul className="mt-8 grid gap-3 text-sm text-muted-foreground">
             <Feature icon={<Vote className="h-4 w-4" />} label="One vote per position, per code" />
             <Feature icon={<Lock className="h-4 w-4" />} label="Encrypted transmission, atomic submission" />
-            <Feature icon={<ChartBar className="h-4 w-4" />} label="Results published after the election closes" />
           </ul>
         </section>
 

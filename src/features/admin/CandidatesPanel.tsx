@@ -15,7 +15,7 @@ import { Loader2, Plus, Trash2, Upload, Download } from "lucide-react";
 import { ZONE_LABELS, type Zone } from "@/lib/zones";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { logAudit } from "@/lib/audit";
-import { downloadCsv, parseSpreadsheet } from "@/lib/export";
+import { downloadCsv, downloadExcel, parseSpreadsheetAllSheets } from "@/lib/export";
 
 type Election = { id: string; name: string };
 type Position = { id: string; title: string; kind: "national" | "zonal"; zone: Zone | null };
@@ -263,21 +263,22 @@ function BulkUploadDialog({
     if (!file) return;
     setFileName(file.name);
     try {
-      const parsed = await parseSpreadsheet(file);
-      const parsedRows: ParsedCandidate[] = parsed.map((r) => {
-        const name = pickRowValue(r, ["name", "candidate", "candidate name", "full name", "names"]);
-        const position = pickRowValue(r, ["position", "post", "office", "title", "position title"]);
-        const institution = pickRowValue(r, ["chapter", "institution", "school", "university", "college"]);
-        const profile = pickRowValue(r, ["profile", "bio", "manifesto", "about", "description"]);
-        const reason = !name
-          ? "Missing name"
-          : !position
-            ? "Missing position"
+      const allSheets = await parseSpreadsheetAllSheets(file);
+      const parsedRows: ParsedCandidate[] = [];
+      for (const sheet of allSheets) {
+        const position = sheet.sheetName.trim();
+        for (const r of sheet.rows) {
+          const name = pickRowValue(r, ["name", "candidate", "candidate name", "full name", "names"]);
+          const institution = pickRowValue(r, ["chapter", "institution", "school", "university", "college"]);
+          const profile = pickRowValue(r, ["profile", "bio", "manifesto", "about", "description"]);
+          const reason = !name
+            ? "Missing name"
             : !knownTitles.has(position.toLowerCase())
               ? "Unknown position"
               : undefined;
-        return { name, position, institution, profile, reason };
-      });
+          parsedRows.push({ name, position, institution, profile, reason });
+        }
+      }
       setRows(parsedRows);
     } catch (err) {
       console.error(err);
@@ -290,11 +291,15 @@ function BulkUploadDialog({
   const invalid = rows.length - valid.length;
 
   function downloadTemplate() {
-    const sample =
-      positions.length > 0
-        ? positions.map((p) => ({ position: p.title, name: "", chapter: "", profile: "" }))
-        : [{ position: "National President", name: "", chapter: "", profile: "" }];
-    downloadCsv("candidates-template.csv", sample);
+    if (positions.length === 0) {
+      downloadCsv("candidates-template.csv", [{ name: "", chapter: "" }]);
+      return;
+    }
+    const sheets = positions.map((p) => ({
+      name: p.title,
+      rows: [{ name: "", chapter: "" }, { name: "", chapter: "" }],
+    }));
+    downloadExcel("candidates-template.xlsx", sheets);
   }
 
   async function upload() {
@@ -334,9 +339,9 @@ function BulkUploadDialog({
         <DialogHeader><DialogTitle>Bulk upload candidates</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Upload an Excel (.xlsx) or CSV file with a <strong>Position</strong> column (matching a position
-            title above) and a <strong>Name</strong> column. Optional <strong>Chapter</strong> and{" "}
-            <strong>Profile</strong> columns. Zone is set automatically for zonal positions.
+            Upload an Excel (.xlsx) file where each <strong>sheet/tab</strong> is named after a position
+            title. Each sheet should have <strong>Name</strong> and <strong>Chapter</strong> columns.
+            Zone is set automatically for zonal positions.
           </p>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={downloadTemplate}>
@@ -345,10 +350,10 @@ function BulkUploadDialog({
           </div>
           <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-3 text-sm text-muted-foreground hover:border-primary">
             <Upload className="h-4 w-4" />
-            {fileName || "Click to choose a file (.xlsx, .xls or .csv)"}
+            {fileName || "Click to choose a file (.xlsx)"}
             <input
               type="file"
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx"
               className="hidden"
               onChange={(e) => handleFile(e.target.files?.[0])}
             />

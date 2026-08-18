@@ -31,6 +31,29 @@ export function parseSpreadsheet(file: File): Promise<Record<string, unknown>[]>
   });
 }
 
+export function parseSpreadsheetAllSheets(
+  file: File,
+): Promise<{ sheetName: string; rows: Record<string, unknown>[] }[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read file"));
+    reader.onload = () => {
+      try {
+        const data = new Uint8Array(reader.result as ArrayBuffer);
+        const book = XLSX.read(data, { type: "array" });
+        const sheets = book.SheetNames.map((name) => ({
+          sheetName: name,
+          rows: XLSX.utils.sheet_to_json<Record<string, unknown>>(book.Sheets[name], { defval: "" }),
+        }));
+        resolve(sheets);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 export function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
   if (rows.length === 0) {
     downloadBlob(filename, new Blob(["(no rows)"], { type: "text/csv" }));
