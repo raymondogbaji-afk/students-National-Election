@@ -278,7 +278,7 @@ function BulkUploadDialog({
         for (const r of sheet.rows) {
           const name = pickRowValue(r, ["name", "candidate", "candidate name", "full name", "names"]);
           const institution = pickRowValue(r, ["chapter", "institution", "school", "university", "college"]);
-          const current_position = pickRowValue(r, ["current position", "current_position", "position", "role"]);
+          const current_position = pickRowValue(r, ["current position", "current_position", "role"]);
           const profile = pickRowValue(r, ["profile", "bio", "manifesto", "about", "description"]);
           const reason = !name
             ? "Missing name"
@@ -301,12 +301,12 @@ function BulkUploadDialog({
 
   function downloadTemplate() {
     if (positions.length === 0) {
-      downloadCsv("candidates-template.csv", [{ name: "", chapter: "", current_position: "" }]);
+      downloadCsv("candidates-template.csv", [{ Name: "", Chapter: "", "Current Position": "" }]);
       return;
     }
     const sheets = positions.map((p) => ({
       name: p.title,
-      rows: [{ name: "", chapter: "", current_position: "" }, { name: "", chapter: "", current_position: "" }],
+      rows: [{ Name: "", Chapter: "", "Current Position": "" }, { Name: "", Chapter: "", "Current Position": "" }],
     }));
     downloadExcel("candidates-template.xlsx", sheets);
   }
@@ -350,8 +350,8 @@ function BulkUploadDialog({
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
             Upload an Excel (.xlsx) file where each <strong>sheet/tab</strong> is named after a position
-            title. Each sheet should have <strong>Name</strong> and <strong>Chapter</strong> columns.
-            Zone is set automatically for zonal positions.
+            title. Each sheet should have <strong>Name</strong>, <strong>Chapter</strong>, and{" "}
+            <strong>Current Position</strong> columns. Zone is set automatically for zonal positions.
           </p>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={downloadTemplate}>
