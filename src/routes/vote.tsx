@@ -257,15 +257,24 @@ function PositionStep({
             <h2 className="font-display text-2xl font-bold">{position.title}</h2>
           </div>
           {selected ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onSelect("")}
-              className="text-muted-foreground hover:text-destructive"
-            >
-              <X className="mr-1 h-4 w-4" /> Clear Selection
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={onNext}
+              >
+                Next <ArrowRight className="ml-1 h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onSelect("")}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <X className="mr-1 h-4 w-4" /> Clear Selection
+              </Button>
+            </div>
           ) : null}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
