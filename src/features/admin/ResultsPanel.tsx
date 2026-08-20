@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ZONE_LABELS, ZONES, type Zone } from "@/lib/zones";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from "recharts";
-import { downloadCsv } from "@/lib/export";
+import { downloadCsv, downloadExcel } from "@/lib/export";
 import { Download, EyeOff, Loader2, Trophy } from "lucide-react";
 
 type Election = { id: string; name: string; results_visible: boolean };
@@ -125,14 +125,15 @@ export function ResultsPanel() {
   const canView = isAdmin || (currentElection?.results_visible ?? false);
 
   function exportPositions() {
-    const rows: { position: string; rank: number; candidate: string; votes: number }[] = [];
+    const sheets: { name: string; rows: Record<string, unknown>[] }[] = [];
     for (const p of positionsQ.data ?? []) {
       const posResults = (results[p.id] ?? []).sort((a, b) => b.count - a.count);
-      posResults.forEach((r, i) => {
-        rows.push({ position: p.title, rank: i + 1, candidate: r.name, votes: r.count });
+      sheets.push({
+        name: p.title.slice(0, 31),
+        rows: posResults.map((r, i) => ({ rank: i + 1, candidate: r.name, votes: r.count })),
       });
     }
-    downloadCsv(`results-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+    downloadExcel(`results-${new Date().toISOString().slice(0, 10)}.xlsx`, sheets);
   }
 
   return (
