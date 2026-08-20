@@ -1,4 +1,4 @@
-export const ZONES = ["northern", "eastern", "western"] as const;
+export const ZONES = ["eastern", "northern", "western"] as const;
 export type Zone = (typeof ZONES)[number];
 
 export const ZONE_LABELS: Record<Zone, string> = {
@@ -8,13 +8,11 @@ export const ZONE_LABELS: Record<Zone, string> = {
 };
 
 export const NATIONAL_POSITION_DEFAULTS = [
-  "National President",
-  "National General Secretary",
-  "National Financial Secretary",
-  "National Missions Secretary",
   "National Academic Secretary",
+  "National Editor-in-chief",
+  "National Missions Secretary",
   "National Prayer Secretary",
-  "National Editor-in-Chief",
+  "National President",
 ];
 
 export const ZONAL_POSITION_DEFAULTS: Record<Zone, string> = {

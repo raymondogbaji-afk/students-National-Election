@@ -79,7 +79,7 @@ export function PositionsPanel() {
         slug: slugify(ZONAL_POSITION_DEFAULTS[z]),
         kind: "zonal" as const,
         zone: z,
-        order_index: i,
+        order_index: NATIONAL_POSITION_DEFAULTS.length + i,
         active: true,
       })),
     ];
