@@ -202,10 +202,8 @@ function VotePage() {
           positions={positions}
           candidatesByPos={candidatesByPos}
           selections={selections}
-          onEdit={(i) => setStep(i)}
           onSubmit={handleSubmit}
           submitting={submitting}
-          onBack={() => setStep(step - 1)}
         />
       )}
     </ShellLayout>
@@ -347,18 +345,14 @@ function ReviewStep({
   positions,
   candidatesByPos,
   selections,
-  onEdit,
   onSubmit,
   submitting,
-  onBack,
 }: {
   positions: Position[];
   candidatesByPos: Record<string, Candidate[]>;
   selections: Record<string, string>;
-  onEdit: (index: number) => void;
   onSubmit: () => void;
   submitting: boolean;
-  onBack: () => void;
 }) {
   return (
     <div>
@@ -384,18 +378,12 @@ function ReviewStep({
                   {cand?.name ?? <span className="text-muted-foreground">Not selected</span>}
                 </p>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => onEdit(i)}>
-                Change
-              </Button>
             </Card>
           );
         })}
       </div>
 
-      <div className="mt-8 flex justify-between gap-3">
-        <Button variant="outline" onClick={onBack}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> Back
-        </Button>
+      <div className="mt-8 flex justify-end gap-3">
         <Button onClick={onSubmit} disabled={submitting}>
           {submitting ? (
             <>
