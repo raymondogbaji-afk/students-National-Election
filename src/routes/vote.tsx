@@ -256,15 +256,15 @@ function PositionStep({
           <div>
             <h2 className="font-display text-2xl font-bold">{position.title}</h2>
           </div>
-          {selected ? (
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={onNext}
-              >
-                Next <ArrowRight className="ml-1 h-4 w-4" />
-              </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={onNext}
+            >
+              Next <ArrowRight className="ml-1 h-4 w-4" />
+            </Button>
+            {selected ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -274,8 +274,8 @@ function PositionStep({
               >
                 <X className="mr-1 h-4 w-4" /> Clear Selection
               </Button>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           Voting for this position is optional. You may skip it.
