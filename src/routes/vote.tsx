@@ -81,28 +81,25 @@ function VotePage() {
     enabled: !!session,
     queryKey: ["ballot", session?.electionId, session?.zone],
     queryFn: async (): Promise<{ positions: Position[]; candidates: Candidate[] }> => {
-      const posRes = await supabase
+      const { data, error } = await supabase
         .from("positions")
-        .select("id,title,kind,zone,order_index")
+        .select("id, title, kind, zone, order_index, candidates!inner(id, position_id, name, institution, current_position, profile, order_index)")
         .eq("election_id", session!.electionId)
         .eq("active", true)
-        .order("kind", { ascending: true })
         .order("order_index", { ascending: true });
-      if (posRes.error) throw posRes.error;
-      const positions = (posRes.data ?? []).filter(
-        (p) => p.kind === "national" || p.zone === session!.zone,
-      ) as Position[];
-      const posIds = positions.map((p) => p.id);
-      if (posIds.length === 0) return { positions: [], candidates: [] };
-      const candRes = await supabase
-        .from("candidates")
-        .select("id,position_id,name,institution,current_position,profile,order_index,active")
-        .in("position_id", posIds)
-        .eq("active", true)
-        .order("order_index", { ascending: true })
-        .limit(5000);
-      if (candRes.error) throw candRes.error;
-      const candidates = (candRes.data ?? []) as Candidate[];
+      if (error) throw error;
+      const rows = (data ?? []) as any[];
+      const positions: Position[] = rows
+        .filter((p) => p.kind === "national" || p.zone === session!.zone)
+        .map((p) => ({ id: p.id, title: p.title, kind: p.kind, zone: p.zone, order_index: p.order_index }));
+      const posIds = new Set(positions.map((p) => p.id));
+      const candidates: Candidate[] = [];
+      for (const row of rows) {
+        if (!posIds.has(row.id)) continue;
+        for (const c of row.candidates ?? []) {
+          candidates.push(c as Candidate);
+        }
+      }
       return { positions, candidates };
     },
   });
