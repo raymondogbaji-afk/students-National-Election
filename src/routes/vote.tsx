@@ -81,29 +81,27 @@ function VotePage() {
     enabled: !!session,
     queryKey: ["ballot", session?.electionId, session?.zone],
     queryFn: async (): Promise<{ positions: Position[]; candidates: Candidate[] }> => {
-      const [posRes, candRes] = await Promise.all([
-        supabase
-          .from("positions")
-          .select("id,title,kind,zone,order_index")
-          .eq("election_id", session!.electionId)
-          .eq("active", true)
-          .order("kind", { ascending: true })
-          .order("order_index", { ascending: true }),
-        supabase
-          .from("candidates")
-          .select("id,position_id,name,institution,current_position,profile,order_index,active")
-          .eq("active", true)
-          .order("order_index", { ascending: true }),
-      ]);
+      const posRes = await supabase
+        .from("positions")
+        .select("id,title,kind,zone,order_index")
+        .eq("election_id", session!.electionId)
+        .eq("active", true)
+        .order("kind", { ascending: true })
+        .order("order_index", { ascending: true });
       if (posRes.error) throw posRes.error;
-      if (candRes.error) throw candRes.error;
       const positions = (posRes.data ?? []).filter(
         (p) => p.kind === "national" || p.zone === session!.zone,
       ) as Position[];
-      const posIds = new Set(positions.map((p) => p.id));
-      const candidates = ((candRes.data ?? []) as Candidate[]).filter((c) =>
-        posIds.has(c.position_id),
-      );
+      const posIds = positions.map((p) => p.id);
+      if (posIds.length === 0) return { positions: [], candidates: [] };
+      const candRes = await supabase
+        .from("candidates")
+        .select("id,position_id,name,institution,current_position,profile,order_index,active")
+        .in("position_id", posIds)
+        .eq("active", true)
+        .order("order_index", { ascending: true });
+      if (candRes.error) throw candRes.error;
+      const candidates = (candRes.data ?? []) as Candidate[];
       return { positions, candidates };
     },
   });
