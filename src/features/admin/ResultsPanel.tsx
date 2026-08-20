@@ -63,7 +63,7 @@ export function ResultsPanel() {
       const posIds = (positionsQ.data ?? []).map((p) => p.id);
       if (posIds.length === 0) return [] as Candidate[];
       const { data, error } = await supabase.from("candidates")
-        .select("id,name,position_id").in("position_id", posIds);
+        .select("id,name,position_id").in("position_id", posIds).limit(5000);
       if (error) throw error;
       return (data ?? []) as Candidate[];
     },
