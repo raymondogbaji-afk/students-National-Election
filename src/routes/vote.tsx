@@ -29,6 +29,7 @@ type Candidate = {
   position_id: string;
   name: string;
   institution: string | null;
+  current_position: string | null;
   profile: string | null;
   order_index: number;
 };
@@ -95,7 +96,7 @@ function VotePage() {
       if (posIds.length === 0) return { positions: [], candidates: [] };
       const candRes = await supabase
         .from("candidates")
-        .select("id,position_id,name,institution,profile,order_index,active")
+        .select("id,position_id,name,institution,current_position,profile,order_index,active")
         .in("position_id", posIds)
         .eq("active", true)
         .order("order_index", { ascending: true })
@@ -304,6 +305,9 @@ function PositionStep({
                   <p className="font-display text-base font-semibold uppercase">{c.name}</p>
                   {c.institution ? (
                     <p className="text-xs text-muted-foreground">{c.institution}</p>
+                  ) : null}
+                  {c.current_position ? (
+                    <p className="text-xs text-muted-foreground">{c.current_position}</p>
                   ) : null}
                 </div>
                 <div
