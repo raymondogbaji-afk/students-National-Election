@@ -113,6 +113,10 @@ function VotePage() {
     return m;
   }, [ballotQuery.data]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
+
   const totalSteps = positions.length + 1; // + review
   const currentPos = step < positions.length ? positions[step] : null;
   const progress = totalSteps > 0 ? ((step + (done ? 1 : 0)) / totalSteps) * 100 : 0;
