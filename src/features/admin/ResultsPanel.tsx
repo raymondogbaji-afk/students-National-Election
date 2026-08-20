@@ -62,10 +62,17 @@ export function ResultsPanel() {
     queryFn: async () => {
       const posIds = (positionsQ.data ?? []).map((p) => p.id);
       if (posIds.length === 0) return [] as Candidate[];
-      const { data, error } = await supabase.from("candidates")
-        .select("id,name,position_id").in("position_id", posIds).limit(5000);
+      const { data, error } = await supabase.from("positions")
+        .select("id, candidates!inner(id, name, position_id)")
+        .in("id", posIds);
       if (error) throw error;
-      return (data ?? []) as Candidate[];
+      const result: Candidate[] = [];
+      for (const row of (data ?? []) as any[]) {
+        for (const c of row.candidates ?? []) {
+          result.push(c as Candidate);
+        }
+      }
+      return result;
     },
   });
 
